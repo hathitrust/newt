@@ -1,0 +1,7 @@
+host: "yourhost"
+username: "username"
+password: "secretpassword"
+
+jiraurl: "jira api url"
+jirausername: "username"
+jirapassword: "password"
