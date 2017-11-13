@@ -1,6 +1,8 @@
 host: "yourhost"
 username: "username"
 password: "secretpassword"
+mailboxfolder: "somefolder"
+destmailbox: "someotherfolder"
 
 jiraurl: "jira api url"
 jirausername: "username"
