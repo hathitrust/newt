@@ -82,7 +82,9 @@ if (configfile.length > 0)
         next unless match
         issuekey = match[1]
         begin
-            jiracommenter.post_comment(issuekey,msg.attr["BODY[TEXT]"])
+            from = msg.attr["ENVELOPE"].from[0]
+            thatfromfield = "#{from.name} #{from.mailbox}@#{from.host} "
+            jiracommenter.post_comment(issuekey,"From: #{thatfromfield}\nDate:#{msg.attr["ENVELOPE"].date}\n\n#{msg.attr["BODY[TEXT]"]}")
             messagefinder.move_message(msg,config["destmailbox"])
         rescue RuntimeError => e
             puts "Couldn't post comment to JIRA ticket!"
