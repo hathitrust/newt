@@ -78,12 +78,12 @@ if (configfile.length > 0)
     jiracommenter = JiraCommenter.new(apiurl: config["jiraurl"], username: config["jirausername"], password: config["jirapassword"])
 
     messagefinder.messages.each do |msg| 
-        match = msg.attr["ENVELOPE"].subject.match(/^([A-Z]+-\d+).*/)
+        match = msg.attr["ENVELOPE"].subject.match(/([A-Z]+-\d+).*/)
         next unless match
         issuekey = match[1]
         begin
             from = msg.attr["ENVELOPE"].from[0]
-            thatfromfield = "#{from.name} #{from.mailbox}@#{from.host} "
+            thatfromfield = "#{from.name} #{from.mailbox}@#{from.host}"
             jiracommenter.post_comment(issuekey,"From: #{thatfromfield}\nDate:#{msg.attr["ENVELOPE"].date}\n\n#{msg.attr["BODY[TEXT]"]}")
             messagefinder.move_message(msg,config["destmailbox"])
         rescue RuntimeError => e
