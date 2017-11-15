@@ -3,6 +3,7 @@ require "yaml"
 require "rest-client" 
 require "json"
 require "optparse"
+require "mail"
 
 class ArgsParserValidator
     def self.parse(args)
@@ -38,11 +39,16 @@ class IMAPService
 		imap.select(mailbox)
 		counter = imap.status(mailbox,["MESSAGES"])["MESSAGES"]
         if counter > 0
-		    imap.fetch(1..counter, ["rfc822.size","uid","envelope","body[text]"])
+		    imap.fetch(1..counter, ["RFC822","rfc822.size","uid","envelope","body[text]"])
         else
             []
         end
 	end
+
+    def get_text_body(msg)
+        mm = Mail.read_from_string msg.attr["RFC822"]
+        mm.text_part.body.to_s
+    end 
 
     def move_message(message,destination)
         imap.select(mailbox)
@@ -59,8 +65,8 @@ class JiraCommenter
 		@resource = RestClient::Resource.new(apiurl, user: username, password: password)
 	end
 
-	def post_comment(key,commentbody)
-		comment_json = {"body"=>commentbody, "properties"=>[{"key"=>"sd.public.comment", "value"=>{"internal"=>true}}]}.to_json
+	def post_internal_comment(key,commentbody)
+		comment_json = {"body"=>commentbody.to_s.force_encoding('UTF-8'), "properties"=>[{"key"=>"sd.public.comment", "value"=>{"internal"=>true}}]}.to_json
 		resource["issue/#{key}/comment"].post(comment_json, :content_type => :json)
 	end
 
@@ -84,7 +90,8 @@ if (configfile.length > 0)
         begin
             from = msg.attr["ENVELOPE"].from[0]
             thatfromfield = "#{from.name} #{from.mailbox}@#{from.host}"
-            jiracommenter.post_comment(issuekey,"From: #{thatfromfield}\nDate:#{msg.attr["ENVELOPE"].date}\n\n#{msg.attr["BODY[TEXT]"]}")
+            textbody = messagefinder.get_text_body(msg)
+            jiracommenter.post_internal_comment(issuekey,"From: #{thatfromfield}\nDate:#{msg.attr["ENVELOPE"].date}\n\n#{textbody}")
             messagefinder.move_message(msg,config["destmailbox"])
         rescue RuntimeError => e
             puts "Couldn't post comment to JIRA ticket!"
