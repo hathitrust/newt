@@ -47,7 +47,11 @@ class IMAPService
 
     def get_text_body(msg)
         mm = Mail.read_from_string msg.attr["RFC822"]
-        mm.text_part.body.to_s
+        if (mm.parts.length >0) 
+           mm.text_part.body.to_s
+        else
+           mm.body.decoded.to_s
+        end
     end 
 
     def move_message(message,destination)
