@@ -4,6 +4,7 @@ require "rest-client"
 require "json"
 require "optparse"
 require "mail"
+require "ostruct"
 
 class ArgsParserValidator
     def self.parse(args)
@@ -54,6 +55,11 @@ class IMAPService
         end
     end 
 
+    def get_mail_header(msg, header)
+        mm = Mail.read_from_string msg.attr["RFC822"]
+        mm.header["#{header}"]
+    end 
+
     def move_message(message,destination)
         imap.select(mailbox)
         imap.uid_move(message.attr["UID"],destination)
@@ -64,7 +70,7 @@ class IMAPService
 	attr_accessor :imap, :mailbox
 end
 
-class JiraCommenter
+class JiraService
 	def initialize(apiurl:,username:,password:)
 		@resource = RestClient::Resource.new(apiurl, user: username, password: password)
 	end
@@ -73,6 +79,13 @@ class JiraCommenter
 		comment_json = {"body"=>commentbody.to_s.force_encoding('UTF-8'), "properties"=>[{"key"=>"sd.public.comment", "value"=>{"internal"=>true}}]}.to_json
 		resource["issue/#{key}/comment"].post(comment_json, :content_type => :json)
 	end
+
+    def search(jql)        
+        # to-do eventually write a proper search, handle large lists properly.
+        # for now, a simple GET will work.
+        response = resource["search?jql=#{jql}"].get()
+        JSON.parse(response, object_class: OpenStruct)
+    end 
 
 	private 
 
@@ -85,17 +98,26 @@ if (configfile.length > 0)
     config = YAML.load(File.read(configfile)) 
 
     messagefinder = IMAPService.new(host: config["host"],username: config["username"], password: config["password"], mailbox: config["mailboxfolder"])
-    jiracommenter = JiraCommenter.new(apiurl: config["jiraurl"], username: config["jirausername"], password: config["jirapassword"])
+    jiraservice = JiraService.new(apiurl: config["jiraurl"], username: config["jirausername"], password: config["jirapassword"])
 
     messagefinder.messages.each do |msg| 
         match = msg.attr["ENVELOPE"].subject.match(/([A-Z]+-\d+).*/)
+        if (!match) 
+           jiraid = messagefinder.get_mail_header(msg, "in-reply-to").to_s.split('.')
+           if jiraid[0] == "\<JIRA"
+               jirares = jiraservice.search("id=#{jiraid[1]}") 
+               if (jirares.total > 0) 
+                   match = ["",jirares.issues[0].key]
+               end
+           end
+        end 
         next unless match
         issuekey = match[1]
         begin
             from = msg.attr["ENVELOPE"].from[0]
             thatfromfield = "#{from.name} #{from.mailbox}@#{from.host}"
             textbody = messagefinder.get_text_body(msg)
-            jiracommenter.post_internal_comment(issuekey,"From: #{thatfromfield}\nDate:#{msg.attr["ENVELOPE"].date}\n\n#{textbody}")
+            jiraservice.post_internal_comment(issuekey,"From: #{thatfromfield}\nDate:#{msg.attr["ENVELOPE"].date}\n\n#{textbody}")
             messagefinder.move_message(msg,config["destmailbox"])
         rescue RuntimeError => e
             puts "Couldn't post comment to JIRA ticket!"
