@@ -121,8 +121,8 @@ if (configfile.length > 0)
             thatfromfield = "#{from.name} #{from.mailbox}@#{from.host}"
             textbody = messagefinder.get_text_body(msg)
             puts textbody
-            #jiraservice.post_internal_comment(issuekey,"From: #{thatfromfield}\nDate:#{msg.attr["ENVELOPE"].date}\n\n#{textbody}")
-            #messagefinder.move_message(msg,config["destmailbox"])
+            jiraservice.post_internal_comment(issuekey,"From: #{thatfromfield}\nDate:#{msg.attr["ENVELOPE"].date}\n\n#{textbody}")
+            messagefinder.move_message(msg,config["destmailbox"])
         rescue RuntimeError => e
             puts "Couldn't post comment to JIRA ticket!"
             puts e.message
