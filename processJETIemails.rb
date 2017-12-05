@@ -5,6 +5,7 @@ require "json"
 require "optparse"
 require "mail"
 require "ostruct"
+require "nokogiri"
 
 class ArgsParserValidator
     def self.parse(args)
@@ -48,10 +49,12 @@ class IMAPService
 
     def get_text_body(msg)
         mm = Mail.read_from_string msg.attr["RFC822"]
-        if (mm.parts.length >0) 
+        if (mm.text_part)
            mm.text_part.body.to_s
+        elsif (mm.html_part) 
+           Nokogiri::HTML(mm.html_part.decoded.to_s).text
         else
-           mm.body.decoded.to_s
+          Nokogiri::HTML(mm.body.decoded.to_s).text
         end
     end 
 
@@ -117,8 +120,9 @@ if (configfile.length > 0)
             from = msg.attr["ENVELOPE"].from[0]
             thatfromfield = "#{from.name} #{from.mailbox}@#{from.host}"
             textbody = messagefinder.get_text_body(msg)
-            jiraservice.post_internal_comment(issuekey,"From: #{thatfromfield}\nDate:#{msg.attr["ENVELOPE"].date}\n\n#{textbody}")
-            messagefinder.move_message(msg,config["destmailbox"])
+            puts textbody
+            #jiraservice.post_internal_comment(issuekey,"From: #{thatfromfield}\nDate:#{msg.attr["ENVELOPE"].date}\n\n#{textbody}")
+            #messagefinder.move_message(msg,config["destmailbox"])
         rescue RuntimeError => e
             puts "Couldn't post comment to JIRA ticket!"
             puts e.message
