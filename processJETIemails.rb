@@ -95,6 +95,21 @@ class JiraService
 	attr_accessor :resource
 end
 
+def unpack_b_or_q(s_text) 
+
+    if m = /=\?([A-Za-z0-9\-]+)\?(B|Q)\?([!->@-~]+)\?=/i.match(s_text)
+        case m[2]
+        when "B" # Base64 
+          decoded = Base64.decode64(m[3])
+        when "Q" # Q
+          decoded = m[3].unpack("M").first.gsub('_',' ')
+        else
+          decoded =s_text
+        end
+        decoded.encode('utf-8') # to convert to utf-8
+    end
+end
+
 configfile = ArgsParserValidator.parse(ARGV)
 
 if (configfile.length > 0)
@@ -104,7 +119,7 @@ if (configfile.length > 0)
     jiraservice = JiraService.new(apiurl: config["jiraurl"], username: config["jirausername"], password: config["jirapassword"])
 
     messagefinder.messages.each do |msg| 
-        match = msg.attr["ENVELOPE"].subject.match(/([A-Z]+-\d+).*/)
+        match = unpack_b_or_q(msg.attr["ENVELOPE"].subject).to_s.match(/([A-Z]+-\d+).*/u)
         if (!match) 
            jiraid = messagefinder.get_mail_header(msg, "in-reply-to").to_s.split('.')
            if jiraid[0] == "\<JIRA"
@@ -123,7 +138,7 @@ if (configfile.length > 0)
             jiraservice.post_internal_comment(issuekey,"From: #{thatfromfield}\nDate:#{msg.attr["ENVELOPE"].date}\n\n#{textbody}")
             messagefinder.move_message(msg,config["destmailbox"])
         rescue RuntimeError => e
-            puts "Couldn't post comment to JIRA ticket!"
+            puts "Couldn't post comment to JIRA ticket! Issue key: #{issuekey}"
             puts e.message
         end
     end
