@@ -50,7 +50,7 @@ class IMAPService
     def get_text_body(msg)
         mm = Mail.read_from_string msg.attr["RFC822"]
         if (mm.text_part)
-           mm.text_part.body.to_s
+           mm.text_part.decoded
         elsif (mm.html_part) 
            Nokogiri::HTML(mm.html_part.decoded.to_s).text
         else
