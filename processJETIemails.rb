@@ -113,6 +113,7 @@ def unpack_b_or_q(s_text)
 end
 
 configfile = ArgsParserValidator.parse(ARGV)
+every_email_has_been_posted = true
 
 if (configfile.length > 0)
     config = YAML.load(File.read(configfile)) 
@@ -139,9 +140,12 @@ if (configfile.length > 0)
             textbody = messagefinder.get_text_body(msg)
             jiraservice.post_internal_comment(issuekey,"From: #{thatfromfield}\nDate:#{msg.attr["ENVELOPE"].date}\n\n#{textbody}")
             messagefinder.move_message(msg,config["destmailbox"])
-        rescue RuntimeError => e
+        rescue StandardError => e
+            every_email_has_been_posted = false
             puts "Couldn't post comment to JIRA ticket! Issue key: #{issuekey}"
             puts e.message
         end
     end
 end
+
+exit 1 unless every_email_has_been_posted
