@@ -106,7 +106,7 @@ def unpack_b_or_q(s_text)
         else
           decoded =s_text
         end
-        decoded.encode('utf-8') # to convert to utf-8
+        decoded.encode('utf-8', invalid: :replace, undef: :replace) # to convert to utf-8
     else
         s_text
     end
